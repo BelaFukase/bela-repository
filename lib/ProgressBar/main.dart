@@ -41,7 +41,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   Color _getProgressColor() {
     if (_progressValue < 0.4) {
       return Colors.deepOrangeAccent; // Use uma cor diferente
-    } else if (_progressValue < 0.7) {
+    } else if (_progressValue < 0.75) {
       return Colors.yellowAccent; // Use uma cor diferente
     } else {
       return Colors.lightGreenAccent; // Use uma cor diferente
