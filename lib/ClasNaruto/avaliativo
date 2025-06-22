@@ -1,158 +1,391 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title> ClãsNaruto</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-                   Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      background: #f5f5f5;
-      color: #333;
-    }
-    #root {
-      padding: 20px;
-    }
-    h1 {
-      margin-bottom: 16px;
-    }
-    ul { list-style: none; padding: 0; }
-    li { margin-bottom: 8px; }
-    button {
-      cursor: pointer;
-      border: none;
-      background: #1976d2;
-      color: #fff;
-      padding: 8px 12px;
-      border-radius: 4px;
-      transition: background 0.2s;
-    }
-    button:hover {
-      background: #115293;
-    }
-    .overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.6);
-      color: #fff; padding: 20px;
-      overflow-y: auto;
-    }
-    .overlay button {
-      background: #e53935;
-      margin-bottom: 20px;
-    }
-    .overlay button:hover {
-      background: #ab000d;
-    }
-  </style>
-</head>
-<body>
-  <div id="root"></div>
+import 'dart:async'; 
 
-  <!-- React + ReactDOM -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <!-- Axios -->
-  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-  <!-- Babel para JSX on-the-fly -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+import 'dart:convert'; 
 
-  <script type="text/babel">
-    const { useState, useEffect } = React;
+import 'package:flutter/material.dart'; 
 
-    function ClanDetail({ clan, onClose }) {
-      const [members, setMembers] = useState([]);
-      const [loading, setLoading] = useState(true);
-      const [error, setError] = useState(null);
+import 'package:http/http.dart' as http; 
 
-      useEffect(() => {
-        setLoading(true); setError(null);
-        Promise.all(
-          clan.characterIds.map(id =>
-            axios.get(`https://api-dattebayo.vercel.app/characters/${id}`))
-          )
-        .then(responses => Promise.all(responses.map(res => res.data)))
-        .then(list => {
-          setMembers(list);
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error(err);
-          setError('Erro ao carregar membros');
-          setLoading(false);
-        });
-      }, [clan]);
+ 
 
-      return (
-        <div className="overlay">
-          <button onClick={onClose}>← Fechar detalhes</button>
-          <h2>{clan.name}</h2>
-          <p><strong>ID do clã:</strong> {clan.id}</p>
-          <p><strong>Total de membros:</strong> {clan.characterIds.length}</p>
+// A classe Character NÃO É MAIS NECESSÁRIA se a lista de personagens for de strings ou ints simples. 
 
-          {loading && <p>Carregando membros…</p>}
-          {error && <p style={{color:'salmon'}}>{error}</p>}
+// class Character { ... } 
 
-          {!loading && !error && (
-            <ul>
-              {members.map(m => (
-                <li key={m.id}>#{m.id} — {m.name}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      );
-    }
+ 
 
-    function App() {
-      const [clans, setClans] = useState([]);
-      const [selectedClan, setSelectedClan] = useState(null);
-      const [loading, setLoading] = useState(true);
-      const [error, setError] = useState(null);
+/// Classe que representa um Clã de Naruto. 
 
-      useEffect(() => {
-        axios.get('https://api-dattebayo.vercel.app/clans')
-          .then(res => {
-            setClans(res.data);
-            setLoading(false);
-          })
-          .catch(err => {
-            console.error(err);
-            setError('Falha ao carregar clãs');
-            setLoading(false);
-          });
-      }, []);
+/// Agora contém ID, nome e uma lista de Strings para os personagens. 
 
-      if (loading) return <p>Carregando clãs…</p>;
-      if (error)   return <p style={{color:'red'}}>{error}</p>;
+class Clan { 
 
-      return (
-        <>
-          <h1>Clãs Naruto</h1>
-          <ul>
-            {clans.map(clan => (
-              <li key={clan.id}>
-                <button onClick={() => setSelectedClan(clan)}>
-                  {clan.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-          {selectedClan && (
-            <ClanDetail
-              clan={selectedClan}
-              onClose={() => setSelectedClan(null)}
-            />
-          )}
-        </>
-      );
-    }
+  final String id; 
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
-</body>
-</html>
-setMembers(list);
-});
+  final String name; 
+
+  final List<String> characters; // <<< VOLTOU A SER UMA LISTA DE STRINGS 
+
+ 
+
+  Clan({required this.id, required this.name, required this.characters}); 
+
+ 
+
+  /// Construtor de fábrica para criar uma instância de Clan a partir de um JSON. 
+
+  factory Clan.fromJson(Map<String, dynamic> json) { 
+
+    // Garante que 'id' é uma String. 
+
+    final id = json['id'].toString(); 
+
+ 
+
+    // Tenta obter o nome, com fallback para "Nome Desconhecido". 
+
+    final name = (json['name'] as String?) ?? 'Nome Desconhecido'; 
+
+ 
+
+    // Processa a lista de 'characters'. 
+
+    // 1. Tenta obter 'characters' como uma List<dynamic>. Se for nulo, usa uma lista vazia. 
+
+    // 2. Mapeia CADA ITEM DA LISTA PARA UMA STRING USANDO .toString(). 
+
+    //    Isso vai converter ints (123 -> "123") ou strings ("Naruto" -> "Naruto"). 
+
+    // 3. Converte o resultado para uma List<String>. 
+
+    final characters = 
+
+        (json['characters'] as List<dynamic>?) 
+
+            ?.map( 
+
+              (e) => e.toString(), 
+
+            ) // <<< MUDANÇA AQUI: CONVERTE PARA STRING DIRETAMENTE 
+
+            .toList() ?? 
+
+        []; 
+
+ 
+
+    return Clan(id: id, name: name, characters: characters); 
+
+  } 
+
+} 
+
+ 
+
+/// Função assíncrona para buscar a lista de clãs da API. 
+
+/// Espera que a resposta seja um MAPA com a chave "clans". 
+
+Future<List<Clan>> fetchClans() async { 
+
+  final response = await http.get( 
+
+    Uri.parse('https://dattebayo-api.onrender.com/clans'), 
+
+  ); 
+
+ 
+
+  if (response.statusCode == 200) { 
+
+    // Primeiro, decodifica o corpo da resposta como um Map<String, dynamic> 
+
+    final Map<String, dynamic> responseBody = 
+
+        jsonDecode(response.body) as Map<String, dynamic>; 
+
+ 
+
+    // Agora, acessa a lista de clãs usando a chave "clans" 
+
+    // Esta linha causou o erro `int is not subtype of Map` antes, 
+
+    // se o item dentro de 'clans' não fosse um Map, mas sim um int. 
+
+ 
+
+    final List<dynamic> jsonList = responseBody['clans'] as List<dynamic>; 
+
+ 
+
+    // Converte cada objeto JSON (que representa um clã) em uma instância de Clan. 
+
+    return jsonList 
+
+        .map((json) => Clan.fromJson(json as Map<String, dynamic>)) 
+
+        .toList(); 
+
+  } else { 
+
+    throw Exception( 
+
+      'Falha ao carregar os clãs. Código de status: ${response.statusCode}', 
+
+    ); 
+
+  } 
+
+} 
+
+ 
+
+void main() => runApp(const MyApp()); 
+
+ 
+
+class MyApp extends StatefulWidget { 
+
+  const MyApp({super.key}); 
+
+ 
+
+  @override 
+
+  State<MyApp> createState() => _MyAppState(); 
+
+} 
+
+ 
+
+class _MyAppState extends State<MyApp> { 
+
+  late Future<List<Clan>> futureClans; 
+
+ 
+
+  @override 
+
+  void initState() { 
+
+    super.initState(); 
+
+    futureClans = fetchClans(); 
+
+  } 
+
+ 
+
+  @override 
+
+  Widget build(BuildContext context) { 
+
+    return MaterialApp( 
+
+      title: 'Clãs de Naruto', 
+
+      theme: ThemeData( 
+
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange), 
+
+        useMaterial3: true, 
+
+      ), 
+
+      home: Scaffold( 
+
+        appBar: AppBar( 
+
+          title: const Text('Clãs de Naruto'), 
+
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary, 
+
+        ), 
+
+        body: Center( 
+
+          child: FutureBuilder<List<Clan>>( 
+
+            future: futureClans, 
+
+            builder: (context, snapshot) { 
+
+              if (snapshot.hasData) { 
+
+                return ListView.builder( 
+
+                  itemCount: snapshot.data!.length, 
+
+                  itemBuilder: (context, index) { 
+
+                    final clan = snapshot.data![index]; 
+
+                    return Card( 
+
+                      margin: const EdgeInsets.symmetric( 
+
+                        horizontal: 16, 
+
+                        vertical: 8, 
+
+                      ), 
+
+                      elevation: 4, 
+
+                      shape: RoundedRectangleBorder( 
+
+                        borderRadius: BorderRadius.circular(12), 
+
+                      ), 
+
+                      child: Padding( 
+
+                        padding: const EdgeInsets.all(16.0), 
+
+                        child: Column( 
+
+                          crossAxisAlignment: CrossAxisAlignment.start, 
+
+                          children: [ 
+
+                            Text( 
+
+                              clan.name, 
+
+                              style: const TextStyle( 
+
+                                fontSize: 20, 
+
+                                fontWeight: FontWeight.bold, 
+
+                                color: Colors.deepPurple, 
+
+                              ), 
+
+                            ), 
+
+                            const SizedBox(height: 8), 
+
+                            Text( 
+
+                              'Personagens:', 
+
+                              style: TextStyle( 
+
+                                fontSize: 16, 
+
+                                fontWeight: FontWeight.w600, 
+
+                                color: Colors.grey[700], 
+
+                              ), 
+
+                            ), 
+
+                            // Exibe a lista de personagens, que agora são Strings diretas 
+
+                            ...clan.characters.map( 
+
+                              (charName) => Padding( 
+
+                                padding: const EdgeInsets.only( 
+
+                                  left: 8.0, 
+
+                                  top: 4.0, 
+
+                                ), 
+
+                                child: Text( 
+
+                                  '- $charName', // <<< ACESSANDO A STRING DIRETAMENTE 
+
+                                  style: TextStyle( 
+
+                                    fontSize: 14, 
+
+                                    color: Colors.grey[800], 
+
+                                  ), 
+
+                                ), 
+
+                              ), 
+
+                            ), 
+
+                            if (clan.characters.isEmpty) 
+
+                              Padding( 
+
+                                padding: const EdgeInsets.only( 
+
+                                  left: 8.0, 
+
+                                  top: 4.0, 
+
+                                ), 
+
+                                child: Text( 
+
+                                  'Nenhum personagem listado.', 
+
+                                  style: TextStyle( 
+
+                                    fontSize: 14, 
+
+                                    fontStyle: FontStyle.italic, 
+
+                                    color: Colors.grey, 
+
+                                  ), 
+
+                                ), 
+
+                              ), 
+
+                          ], 
+
+                        ), 
+
+                      ), 
+
+                    ); 
+
+                  }, 
+
+                ); 
+
+              } else if (snapshot.hasError) { 
+
+                return Text( 
+
+                  'Erro: ${snapshot.error}', 
+
+                  style: const TextStyle(color: Colors.red), 
+
+                ); 
+
+              } 
+
+ 
+
+              return const CircularProgressIndicator(); 
+
+            }, 
+
+          ), 
+
+        ), 
+
+      ), 
+
+    ); 
+
+  } 
+
+} 
+
+ 
+
+ 
